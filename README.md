@@ -1,3 +1,3 @@
-# mem-simulator
+# Memory Simulator
 
 Adrick Malekian
