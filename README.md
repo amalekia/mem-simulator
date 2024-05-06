@@ -1,3 +1,0 @@
-# mem-simulator
-
-Adrick Malekian
