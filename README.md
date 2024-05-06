@@ -1,3 +1,0 @@
-# Memory Simulator
-
-Adrick Malekian
