@@ -34,17 +34,17 @@ def OPT():
     pass
 
 #default page replacement alg
-str pageRepAlg = "FIFO"
+pageRepAlg = "FIFO"
 
 #instance of the classes
-TLB tlb
-PageTable pageTable
-PhysicalMemory physMem
+tlb = TLB()
+pageTable = PageTable()
+physMem = PhysicalMemory(256)
 
 #page faults counter and tlb hit/miss counter
-int pageFaults = 0
-int tlbHits = 0
-int tlbMisses = 0
+pageFaults = 0
+tlbHits = 0
+tlbMisses = 0
 
 #function to simulate memory
 def memSim():
