@@ -10,7 +10,7 @@ class PageTable:
     def __init__(self):
         #dictionary that holds the page number and the frame number
         self.pages = {}     #dictionary that holds the page number and the frame number
-        self.numPages = 8      
+        self.size = 8      
         self.pageSize = 256    # 256 bytes per page
 
 class PhysicalMemory:
@@ -18,6 +18,8 @@ class PhysicalMemory:
         #memory which frames map to
         self.frames = {}    #dictionary that holds the frame number and the data
         self.numframes = frames
+    
+pagesAcessed = []   #list of pages accessed
 
 def FIFO():
     #implement FIFO page replacement algorithm
@@ -54,6 +56,9 @@ def memSim():
             page = (addr & 0xFF00) >> 8
             offset = addr & 0xFF
             frame = -1
+
+            #appends page to the list of pages accessed
+            pagesAcessed.append(page)
 
             #check the TLB
             if tlb.entries.get(page) != None:
