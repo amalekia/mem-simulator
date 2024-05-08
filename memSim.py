@@ -96,6 +96,7 @@ if __name__ == '__main__':
         if i == 0:
             pageTable = PhysicalMemory(int(arg))
         if i == 1:
+            arg = sys.argv[i]
             if arg == "FIFO" or arg == "LRU" or arg == "OPT":
                 pageRepAlg = arg
             else:
