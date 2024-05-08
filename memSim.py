@@ -18,8 +18,6 @@ class PhysicalMemory:
         #memory which frames map to
         self.frames = {}    #dictionary that holds the frame number and the data
         self.numframes = frames
-    
-pagesAcessed = []   #list of pages accessed
 
 def FIFO():
     #implement FIFO page replacement algorithm
@@ -32,6 +30,9 @@ def LRU():
 def OPT():
     #implement LFU page replacement algorithm
     pass
+
+#list of pages accessed
+pagesAcessed = []
 
 #default page replacement alg
 pageRepAlg = "FIFO"
