@@ -4,12 +4,18 @@ PAGE_AND_FRAME_SIZE = 256
 
 class TLB:
     def __init__(self):
-        self.size = 16
+        self.size = 5
         self.entries = {}
 
     def add_entry(self, page_number, frame_number):
+        # Check if there is another key with the same frame number
+        for key, value in self.entries.items():
+            if value == frame_number:
+                del self.entries[key]  # Remove the key with the same frame number
+                break
+
         if len(self.entries) == self.size:
-            self.entries.popitem(last=False)  # Remove the oldest entry
+            self.entries.popitem()  # Remove the oldest entry
         self.entries[page_number] = frame_number
 
     def lookup(self, page_number):
@@ -17,7 +23,7 @@ class TLB:
 
 class PageTable:
     def __init__(self):
-        self.size = 2**8
+        self.size = 256
         self.entries = {i: {'frame_number': None, 'loaded_bit': False} for i in range(self.size)}
     
     def add_entry(self, page_number, frame_number):
@@ -25,7 +31,8 @@ class PageTable:
         self.entries[page_number]['loaded_bit'] = True
 
 class PhysicalMemory:
-    def __init__(self, num_frames):
+    def __init__(self, num_frames, page_repl_alg):
+        self.page_repl_alg = page_repl_alg
         self.num_frames = num_frames
         self.frames = [None] * num_frames
 
@@ -35,28 +42,37 @@ class PhysicalMemory:
     def read_frame(self, frame_number):
         return self.frames[frame_number]
 
+    def load_from_backing_store(self, page, frame):
+        with open("BACKING_STORE.bin", mode="rb") as f:
+            f.seek(page*256)  #move to page in backing store
+            data = f.read(PAGE_AND_FRAME_SIZE)  # Read frame size amount of data
+            self.frames[frame] = data
+        
 class MemoryManager:
-    def __init__(self, page_replacement_algorithm):
+    def __init__(self):
         self.page_faults = 0
         self.tlb_hits = 0
         self.tlb_misses = 0
-        self.pageRepAlg = page_replacement_algorithm
         self.pagesAcessed = []
         self.addrList = []
 
-def FIFO(memManager, page):
-    # implement FIFO page replacement algorithm
-    oldest_page = memManager.pagesAcessed[0]  # get the oldest page accessed
-    frame = pageTable.entries.get(oldest_page)['frame_number']  # get the frame number of the oldest page from the page table
-    del pageTable.entries[oldest_page]  # remove the oldest page from the page table
-    return frame
+def FIFO(memManager, physMem, page):
+    if len(memManager.pagesAcessed) <= physMem.num_frames:
+        return len(memManager.pagesAcessed) - 1
+    else:
+        oldest_page = memManager.pagesAcessed.pop(0)  # pop the oldest page accessed from the list
+        frame = pageTable.entries.get(oldest_page)['frame_number']  # get the frame number of the oldest page from the page table
+        pageTable.entries[oldest_page]["loaded_bit"] = False  # remove the frame associated and set it to false
+        return frame
 
 def LRU(memManager, page):
-    # implement LRU page replacement algorithm
-    
-    oldest_page = memManager.pagesAcessed.pop(0)  # get the least recently used page accessed
-    frame = pageTable.entries.get(oldest_page)  # get the frame number of the oldest page from the page table
-    del pageTable.entries[oldest_page]  # remove the oldest page from the page table
+    # find the least recently used page from the pages accessed list
+    least_recent_page = memManager.pagesAcessed[0]
+    for p in memManager.pagesAcessed:
+        if memManager.pagesAcessed.index(p) < memManager.pagesAcessed.index(least_recent_page):
+            least_recent_page = p
+    frame = pageTable.entries.get(least_recent_page)['frame_number']  # get the frame number of the least recently used page from the page table
+    pageTable.entries[least_recent_page]["loaded_bit"] = False  # remove the frame associated and set it to false
     return frame
 
 def OPT(memManager, page):
@@ -73,10 +89,9 @@ def memSim(tlb, pageTable, physMem, memManager):
         offset = int(addr[8:], 2)
         frame = -1
 
-        print(page)
-
         #appends page to the list of pages accessed
         memManager.pagesAcessed.append(page)
+        print(memManager.pagesAcessed)
 
         #check the TLB
         if tlb.lookup(page) != None:
@@ -92,24 +107,34 @@ def memSim(tlb, pageTable, physMem, memManager):
                 memManager.page_faults += 1
                 #implement page replacement algorithm
                 if pageRepAlg == "LRU":
-                    frame = LRU(memManager, page)
+                    frame = LRU(memManager, physMem, page)
                 elif pageRepAlg == "OPT":
-                    frame = OPT(memManager, page)
+                    frame = OPT(memManager, physMem, page)
                 else:
-                    frame = FIFO(memManager, page)
+                    frame = FIFO(memManager, physMem, page)
+                # print(page)
+                # print(frame)
 
+                physMem.load_from_backing_store(page, frame)
                 #update the page table
                 pageTable.add_entry(page, frame)
 
             #update the TLB
-            tlb.entries.add_entry(page, frame)
+            tlb.add_entry(page, frame)
         
-        physicalAddress = frame * 256 + offset
+        # physicalAddress = frame * 256 + offset
         frameContent = physMem.read_frame(frame)
 
         #get the data from the physical memory
-        data = physMem.frames.get(frame * 256 + offset)
-        print(decim_addr, ", ", data, ", ", frame, ", " , frameContent, "\n")
+        # data = physMem.frames.get(frame * 256 + offset)
+        data= 0
+        print(decim_addr, data, frame, frameContent)
+    
+    print('Page Faults: ' + str(memManager.page_faults))
+    print('Page Fault Rate: ' + str(memManager.page_faults/len(memManager.addrList)))
+    print('TLB Hits: ' + str(memManager.tlb_hits))
+    print('TLB Misses: ' + str(memManager.tlb_misses))
+    print('TLB Hit Rate: ' + str(memManager.tlb_hits/len(memManager.addrList)))
 
 if __name__ == '__main__':
     num_frames = 0
@@ -131,14 +156,14 @@ if __name__ == '__main__':
     #instance of the classes
     tlb = TLB()
     pageTable = PageTable()
-    physMem = PhysicalMemory(num_frames)
-    memManager = MemoryManager(pageRepAlg)
+    physMem = PhysicalMemory(num_frames, pageRepAlg)
+    memManager = MemoryManager()
 
     if num_frames == 0:
         print("Invalid number of frames")
         sys.exit(1)
 
-    with open("addresses.txt", "r") as f:
+    with open("addressestest.txt", "r") as f:
         for line in f:
             #parse the address from integer to binary
             memManager.addrList.append(int(line))
