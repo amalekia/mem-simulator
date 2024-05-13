@@ -1,11 +1,12 @@
 import sys
+from collections import OrderedDict
 
 PAGE_AND_FRAME_SIZE = 256
 
 class TLB:
     def __init__(self):
         self.size = 5
-        self.entries = {}
+        self.entries = OrderedDict()
 
     def add_entry(self, page_number, frame_number):
         # Check if there is another key with the same frame number
@@ -15,7 +16,7 @@ class TLB:
                 break
 
         if len(self.entries) == self.size:
-            self.entries.popitem()  # Remove the oldest entry
+            self.entries.popitem(last=False)  # Remove the oldest entry
         self.entries[page_number] = frame_number
 
     def lookup(self, page_number):
@@ -91,7 +92,6 @@ def memSim(tlb, pageTable, physMem, memManager):
 
         #appends page to the list of pages accessed
         memManager.pagesAcessed.append(page)
-        print(memManager.pagesAcessed)
 
         #check the TLB
         if tlb.lookup(page) != None:
@@ -112,8 +112,6 @@ def memSim(tlb, pageTable, physMem, memManager):
                     frame = OPT(memManager, physMem, page)
                 else:
                     frame = FIFO(memManager, physMem, page)
-                # print(page)
-                # print(frame)
 
                 physMem.load_from_backing_store(page, frame)
                 #update the page table
