@@ -5,7 +5,7 @@ PAGE_AND_FRAME_SIZE = 256
 
 class TLB:
     def __init__(self):
-        self.size = 5
+        self.size = 16
         self.entries = OrderedDict()
 
     def add_entry(self, page_number, frame_number):
@@ -51,13 +51,13 @@ class PhysicalMemory:
         
 class MemoryManager:
     def __init__(self):
-        self.page_faults = 0
-        self.tlb_hits = 0
-        self.tlb_misses = 0
+        self.page_faults = 0.0
+        self.tlb_hits = 0.0
+        self.tlb_misses = 0.0
         self.pagesAcessed = []
         self.addrList = []
 
-def FIFO(memManager, physMem, page):
+def FIFO(memManager, physMem):
     if len(memManager.pagesAcessed) <= physMem.num_frames:
         return len(memManager.pagesAcessed) - 1
     else:
@@ -66,7 +66,7 @@ def FIFO(memManager, physMem, page):
         pageTable.entries[oldest_page]["loaded_bit"] = False  # remove the frame associated and set it to false
         return frame
 
-def LRU(memManager, page):
+def LRU(memManager):
     # find the least recently used page from the pages accessed list
     least_recent_page = memManager.pagesAcessed[0]
     for p in memManager.pagesAcessed:
@@ -76,7 +76,7 @@ def LRU(memManager, page):
     pageTable.entries[least_recent_page]["loaded_bit"] = False  # remove the frame associated and set it to false
     return frame
 
-def OPT(memManager, page):
+def OPT(memManager):
     #implement LFU page replacement algorithm
     pass
 
@@ -92,6 +92,7 @@ def memSim(tlb, pageTable, physMem, memManager):
 
         #appends page to the list of pages accessed
         memManager.pagesAcessed.append(page)
+        print(page)
 
         #check the TLB
         if tlb.lookup(page) != None:
@@ -107,11 +108,11 @@ def memSim(tlb, pageTable, physMem, memManager):
                 memManager.page_faults += 1
                 #implement page replacement algorithm
                 if pageRepAlg == "LRU":
-                    frame = LRU(memManager, physMem, page)
+                    frame = LRU(memManager)
                 elif pageRepAlg == "OPT":
-                    frame = OPT(memManager, physMem, page)
+                    frame = OPT(memManager)
                 else:
-                    frame = FIFO(memManager, physMem, page)
+                    frame = FIFO(memManager, physMem)
 
                 physMem.load_from_backing_store(page, frame)
                 #update the page table
@@ -128,11 +129,13 @@ def memSim(tlb, pageTable, physMem, memManager):
         data= 0
         print(decim_addr, data, frame, frameContent)
     
+    #print the statistics
+    print('Number of Translated Addresses: ' + str(len(memManager.addrList)))
     print('Page Faults: ' + str(memManager.page_faults))
     print('Page Fault Rate: ' + str(memManager.page_faults/len(memManager.addrList)))
     print('TLB Hits: ' + str(memManager.tlb_hits))
     print('TLB Misses: ' + str(memManager.tlb_misses))
-    print('TLB Hit Rate: ' + str(memManager.tlb_hits/len(memManager.addrList)))
+    print('TLB Hit Rate: ' + str((round(memManager.tlb_hits/len(memManager.addrList), 8))))
 
 if __name__ == '__main__':
     num_frames = 0
