@@ -1,5 +1,6 @@
 import sys
 from collections import OrderedDict
+import binascii
 
 PAGE_AND_FRAME_SIZE = 256
 
@@ -44,10 +45,15 @@ class PhysicalMemory:
         return self.frames[frame_number]
 
     def load_from_backing_store(self, page, frame):
-        with open("BACKING_STORE.bin", mode="rb") as f:
+        with open("BACKING_STORE.bin", mode="rb") as f:       
             f.seek(page*256)  #move to page in backing store
-            data = f.read(PAGE_AND_FRAME_SIZE)  # Read frame size amount of data
-            self.frames[frame] = data
+            self.frames[frame] = binascii.hexlify(f.read(PAGE_AND_FRAME_SIZE)).upper()
+    
+    def get_value(self, page, offset):
+        with open("BACKING_STORE.bin", mode="rb") as f:
+            f.seek(page * PAGE_AND_FRAME_SIZE + offset)  # move to the specific offset in the page
+            data = binascii.hexlify(f.read(1))  # Read a single byte of data
+            return data
         
 class MemoryManager:
     def __init__(self):
@@ -73,8 +79,32 @@ def LRU(memManager):
     else:
         queue = []
         least_recent_page = memManager.pagesAcessed[0]
-        i = 0
-        while len(queue) < len(memManager.pagesAcessed) - 1 and i < len(memManager.pagesAcessed) - 1:
+        i = len(memManager.pagesAcessed) - 2
+        while len(queue) < len(memManager.pagesAcessed) - 1 and i > 0:
+            print("Queue: " + str(queue))
+            print("Page " + str(memManager.pagesAcessed[i]))
+            if memManager.pagesAcessed[i] in queue:
+                queue.remove(memManager.pagesAcessed[i])
+            queue.append(memManager.pagesAcessed[i])
+            i -= 1
+        for page in queue:
+            if page not in memManager.pagesAcessed:
+                least_recent_page = page
+                break
+        print(least_recent_page)
+        frame = pageTable.entries.get(least_recent_page)['frame_number']  # get the frame number of the least recently used page from the page table
+        pageTable.entries[least_recent_page]["loaded_bit"] = False  # remove the frame associated and set it to false
+        return frame
+
+def OPT(memManager):
+    #find the predicted least used page from the pages to be accessed list
+    if len(memManager.pagesAcessed) <= physMem.num_frames:
+        return len(memManager.pagesAcessed) - 1
+    else:
+        queue = []
+        least_recent_page = memManager.pagesAcessed[0]
+        i = len(memManager.pagesAcessed)
+        while len(queue) < len(memManager.pagesAcessed) - len(memManager.addrList) - 1 and i < len(memManager.addrList) - 1:
             if memManager.pagesAcessed[i] in queue:
                 queue.remove(memManager.pagesAcessed[i])
             queue.append(memManager.pagesAcessed[i])
@@ -86,10 +116,6 @@ def LRU(memManager):
         frame = pageTable.entries.get(least_recent_page)['frame_number']  # get the frame number of the least recently used page from the page table
         pageTable.entries[least_recent_page]["loaded_bit"] = False  # remove the frame associated and set it to false
         return frame
-
-def OPT(memManager):
-    #implement LFU page replacement algorithm
-    pass
 
 #function to simulate memory
 def memSim(tlb, pageTable, physMem, memManager):
@@ -131,13 +157,15 @@ def memSim(tlb, pageTable, physMem, memManager):
             #update the TLB
             tlb.add_entry(page, frame)
         
-        # physicalAddress = frame * 256 + offset
         frameContent = physMem.read_frame(frame)
 
         #get the data from the physical memory
-        # data = physMem.frames.get(frame * 256 + offset)
-        data= 0
-        print(decim_addr, data, frame, frameContent)
+        value = physMem.get_value(page, offset)
+        print(int(value, 16))
+        print('' + str(decim_addr) + ', ' 
+              + str(int(value, 16)) + ', '
+              + str(frame) + ', '
+              + str(frameContent))
     
     #print the statistics
     print('Number of Translated Addresses: ' + str(len(memManager.addrList)))
@@ -174,7 +202,7 @@ if __name__ == '__main__':
         print("Invalid number of frames")
         sys.exit(1)
 
-    with open("addressestest.txt", "r") as f:
+    with open("addresses.txt", "r") as f:
         for line in f:
             #parse the address from integer to binary
             memManager.addrList.append(int(line))
