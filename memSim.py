@@ -68,13 +68,24 @@ def FIFO(memManager, physMem):
 
 def LRU(memManager):
     # find the least recently used page from the pages accessed list
-    least_recent_page = memManager.pagesAcessed[0]
-    for p in memManager.pagesAcessed:
-        if memManager.pagesAcessed.index(p) < memManager.pagesAcessed.index(least_recent_page):
-            least_recent_page = p
-    frame = pageTable.entries.get(least_recent_page)['frame_number']  # get the frame number of the least recently used page from the page table
-    pageTable.entries[least_recent_page]["loaded_bit"] = False  # remove the frame associated and set it to false
-    return frame
+    if len(memManager.pagesAcessed) <= physMem.num_frames:
+        return len(memManager.pagesAcessed) - 1
+    else:
+        queue = []
+        least_recent_page = memManager.pagesAcessed[0]
+        i = 0
+        while len(queue) < len(memManager.pagesAcessed) - 1 and i < len(memManager.pagesAcessed) - 1:
+            if memManager.pagesAcessed[i] in queue:
+                queue.remove(memManager.pagesAcessed[i])
+            queue.append(memManager.pagesAcessed[i])
+            i += 1
+        for page in queue:
+            if page not in memManager.pagesAcessed:
+                least_recent_page = page
+                break
+        frame = pageTable.entries.get(least_recent_page)['frame_number']  # get the frame number of the least recently used page from the page table
+        pageTable.entries[least_recent_page]["loaded_bit"] = False  # remove the frame associated and set it to false
+        return frame
 
 def OPT(memManager):
     #implement LFU page replacement algorithm
@@ -92,7 +103,6 @@ def memSim(tlb, pageTable, physMem, memManager):
 
         #appends page to the list of pages accessed
         memManager.pagesAcessed.append(page)
-        print(page)
 
         #check the TLB
         if tlb.lookup(page) != None:
