@@ -72,28 +72,28 @@ def FIFO(memManager, physMem):
         pageTable.entries[oldest_page]["loaded_bit"] = False  # remove the frame associated and set it to false
         return frame
 
-def LRU(memManager):
+def LRU(memManager, physMem):
     # find the least recently used page from the pages accessed list
     if len(memManager.pagesAcessed) <= physMem.num_frames:
         return len(memManager.pagesAcessed) - 1
     else:
-        queue = []
-        least_recent_page = memManager.pagesAcessed[0]
+        queue = OrderedDict()
+        #setup the queue
         i = len(memManager.pagesAcessed) - 2
-        while len(queue) < len(memManager.pagesAcessed) - 1 and i > 0:
-            print("Queue: " + str(queue))
-            print("Page " + str(memManager.pagesAcessed[i]))
-            if memManager.pagesAcessed[i] in queue:
-                queue.remove(memManager.pagesAcessed[i])
-            queue.append(memManager.pagesAcessed[i])
+        while (physMem.num_frames - len(queue)) > 0:
+            queue[memManager.pagesAcessed[i]] = False
             i -= 1
-        for page in queue:
-            if page not in memManager.pagesAcessed:
-                least_recent_page = page
-                break
-        print(least_recent_page)
-        frame = pageTable.entries.get(least_recent_page)['frame_number']  # get the frame number of the least recently used page from the page table
-        pageTable.entries[least_recent_page]["loaded_bit"] = False  # remove the frame associated and set it to false
+
+        #iterate through the pages accessed list to see which ones was accessed the longest ago
+        i = len(memManager.pagesAcessed) - 2
+        while len(queue) > 1:
+            if memManager.pagesAcessed[i] in queue:
+                del queue[memManager.pagesAcessed[i]]
+            i -= 1
+        
+        least_recent_page = list(queue.keys())[0]
+        frame = pageTable.entries.get(least_recent_page)['frame_number']  
+        pageTable.entries[least_recent_page]["loaded_bit"] = False
         return frame
 
 def OPT(memManager):
@@ -144,7 +144,7 @@ def memSim(tlb, pageTable, physMem, memManager):
                 memManager.page_faults += 1
                 #implement page replacement algorithm
                 if pageRepAlg == "LRU":
-                    frame = LRU(memManager)
+                    frame = LRU(memManager, physMem)
                 elif pageRepAlg == "OPT":
                     frame = OPT(memManager)
                 else:
@@ -158,10 +158,9 @@ def memSim(tlb, pageTable, physMem, memManager):
             tlb.add_entry(page, frame)
         
         frameContent = physMem.read_frame(frame)
-
+        print(page)
         #get the data from the physical memory
         value = physMem.get_value(page, offset)
-        print(int(value, 16))
         print('' + str(decim_addr) + ', ' 
               + str(int(value, 16)) + ', '
               + str(frame) + ', '
@@ -202,7 +201,7 @@ if __name__ == '__main__':
         print("Invalid number of frames")
         sys.exit(1)
 
-    with open("addresses.txt", "r") as f:
+    with open("addressestest.txt", "r") as f:
         for line in f:
             #parse the address from integer to binary
             memManager.addrList.append(int(line))
