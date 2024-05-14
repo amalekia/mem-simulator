@@ -96,25 +96,30 @@ def LRU(memManager, physMem):
         pageTable.entries[least_recent_page]["loaded_bit"] = False
         return frame
 
-def OPT(memManager):
-    #find the predicted least used page from the pages to be accessed list
+def OPT(memManager, physMem):
+    # find the predicted least used page from the pages accessed list
     if len(memManager.pagesAcessed) <= physMem.num_frames:
         return len(memManager.pagesAcessed) - 1
     else:
-        queue = []
-        least_recent_page = memManager.pagesAcessed[0]
-        i = len(memManager.pagesAcessed)
-        while len(queue) < len(memManager.pagesAcessed) - len(memManager.addrList) - 1 and i < len(memManager.addrList) - 1:
-            if memManager.pagesAcessed[i] in queue:
-                queue.remove(memManager.pagesAcessed[i])
-            queue.append(memManager.pagesAcessed[i])
+        queue = OrderedDict()
+        #setup the queue
+        i = len(memManager.pagesAcessed) - 2
+        while (physMem.num_frames - len(queue)) > 0:
+            queue[memManager.pagesAcessed[i]] = False
+            i -= 1
+
+        #iterate through the pages accessed list to see which ones wont be accesses for a while
+        i = len(memManager.addrList) - len(memManager.pagesAcessed)
+        while len(queue) > 1 and i < len(memManager.addrList) - 1:
+            addr = format(memManager.addrList[i], '016b')
+            predicted_least_accessed_addr = int(addr[0:8], 2)
+            if predicted_least_accessed_addr in queue:
+                del queue[predicted_least_accessed_addr]
             i += 1
-        for page in queue:
-            if page not in memManager.pagesAcessed:
-                least_recent_page = page
-                break
-        frame = pageTable.entries.get(least_recent_page)['frame_number']  # get the frame number of the least recently used page from the page table
-        pageTable.entries[least_recent_page]["loaded_bit"] = False  # remove the frame associated and set it to false
+
+        least_accessed_addr = list(queue.keys())[len(queue) - 1]
+        frame = pageTable.entries.get(least_accessed_addr)['frame_number']  
+        pageTable.entries[least_accessed_addr]["loaded_bit"] = False
         return frame
 
 #function to simulate memory
@@ -146,7 +151,7 @@ def memSim(tlb, pageTable, physMem, memManager):
                 if pageRepAlg == "LRU":
                     frame = LRU(memManager, physMem)
                 elif pageRepAlg == "OPT":
-                    frame = OPT(memManager)
+                    frame = OPT(memManager, physMem)
                 else:
                     frame = FIFO(memManager, physMem)
 
@@ -158,12 +163,13 @@ def memSim(tlb, pageTable, physMem, memManager):
             tlb.add_entry(page, frame)
         
         frameContent = physMem.read_frame(frame)
-        print(page)
         #get the data from the physical memory
-        value = physMem.get_value(page, offset)
+        value = int(physMem.get_value(page, offset), 16)
+        if value > 127:
+            value = value - 256
         print('' + str(decim_addr) + ', ' 
-              + str(int(value, 16)) + ', '
-              + str(frame) + ', '
+              + str(value) + ', '
+              + str(frame)+ ', '
               + str(frameContent))
     
     #print the statistics
@@ -201,7 +207,7 @@ if __name__ == '__main__':
         print("Invalid number of frames")
         sys.exit(1)
 
-    with open("addressestest.txt", "r") as f:
+    with open("addresses.txt", "r") as f:
         for line in f:
             #parse the address from integer to binary
             memManager.addrList.append(int(line))
